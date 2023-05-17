@@ -8,7 +8,7 @@ from loguru import logger
 import pickle
 from torch.utils.data import Dataset
 from multiprocessing import Pool
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from src.models.peft.llama.llama_utils import preprocess_data
 import datasets as hf_dataset
 
@@ -24,7 +24,7 @@ class LlamaDataset(Dataset):
             data:
             mode:
         """
-        cache_features_file = os.path.join(
+        cached_features_file = os.path.join(
             args.cache_dir,
             args.model_name.replace("/", "_")
             + "_cache_"
@@ -32,16 +32,15 @@ class LlamaDataset(Dataset):
             + str(len(data)),
         )
 
-        if (
-            os.path.exists(cache_features_file)
-            and (not args.reprocess_input_data and not args.no_cache)
-            or (mode == "dev" and args.use_cached_eval_features and not args.no_cache)
+        if os.path.exists(cached_features_file) and (
+                (not args.reprocess_input_data and not args.no_cache)
+                or (mode == "dev" and args.use_cached_eval_features and not args.no_cache)
         ):
-            logger.info(f"loading features from cached file {cache_features_file}")
-            with open(cache_features_file, "rb") as handle:
+            logger.info(" Loading features from cached file %s" % cached_features_file)
+            with open(cached_features_file, "rb") as handle:
                 self.examples = pickle.load(handle)
         else:
-            logger.info(f"create features from dataset file at {cache_features_file}")
+            logger.info(" Creating features from dataset file at %s" % args.cache_dir)
 
             data = [
                 (instruction, input_text, target_text, tokenizer, args)
@@ -50,36 +49,28 @@ class LlamaDataset(Dataset):
                 )
             ]
 
-            if (
-                mode == "train" and args.use_multiprocessing
-            ) or (
-                mode == "dev" and args.use_multiprocessing_for_evaluation
+            if (mode == "train" and args.use_multiprocessing) or (
+                    mode == "dev" and args.use_multiprocessing_for_evaluation
             ):
                 if args.multiprocessing_chunksize == -1:
-                    chunk_size = max(len(data) // (args.process_count * 2), 500)
+                    chunksize = max(len(data) // (args.process_count * 2), 500)
                 else:
-                    chunk_size = args.multiprocessing_chunksize
+                    chunksize = args.multiprocessing_chunksize
 
                 with Pool(args.process_count) as p:
                     self.examples = list(
                         tqdm(
-                            p.imap(
-                                preprocess_data, data, chunksize=chunk_size,
-                            ), disable=args.silent
+                            p.imap(preprocess_data, data, chunksize=chunksize),
+                            total=len(data),
+                            disable=args.silent,
                         )
                     )
             else:
-                self.examples = [
-                    preprocess_data(d)
-                    for d in tqdm(
-                        data, disable=args.silent
-                    )
-                ]
-
+                self.examples = [preprocess_data(d) for d in tqdm(data, disable=args.silent)]
             if not args.no_cache:
-                logger.info(f"saving features into cache file{cache_features_file}")
-                with open(cache_features_file, "wb") as f:
-                    pickle.dump(self.examples, f, protocol=pickle.HIGHEST_PROTOCOL)
+                logger.info(" Saving features into cached file %s" % cached_features_file)
+                with open(cached_features_file, "wb") as handle:
+                    pickle.dump(self.examples, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def __len__(self):
         return len(self.examples)

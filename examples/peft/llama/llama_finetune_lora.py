@@ -105,7 +105,6 @@ def main():
             "resume_from_checkpoint": args.output_dir,
             "eval_steps": args.eval_steps,
             "save_steps": args.save_steps,
-
         }
         model = LlamaModelPeft(args.model_type, args.model_name, args=model_args)
         train_data = load_data(args.train_file)

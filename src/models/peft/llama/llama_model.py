@@ -314,6 +314,7 @@ class LLamaModel:
             learning_rate=self.args.learning_rate,
             num_train_epochs=self.args.num_train_epochs,
             logging_dir=f"{output_dir}/logs",
+            logging_steps=self.args.logging_steps,
             max_steps=self.args.max_steps,
             per_device_train_batch_size=self.args.per_device_train_batch_size,
             per_device_eval_batch_size=self.args.per_device_train_batch_size,
@@ -322,8 +323,8 @@ class LLamaModel:
             save_steps=self.args.save_steps,
             optim=self.args.optimizer,
             save_strategy=self.args.save_strategy,
-            evaluation_strategy="steps" if eval_data is not None else "no",
-            eval_steps=self.args.eval_steps,
+            evaluation_strategy='steps' if eval_data is not None else 'no',
+            eval_steps=self.args.eval_steps if eval_data is not None else None,
             load_best_model_at_end=True if eval_data is not None else False,
             ddp_find_unused_parameters=False if self.ddp else None,
             save_total_limit=self.args.save_total_limit,
@@ -332,7 +333,7 @@ class LLamaModel:
             report_to=self.args.report_to,
             overwrite_output_dir=self.args.overwrite_output_dir,
             no_cuda=True if self.device == "cpu" else False,
-            **kwargs,
+            **kwargs
         )
 
         logger.warning(
@@ -347,14 +348,14 @@ class LLamaModel:
             tokenizer=self.tokenizer,
             return_tensors="pt",
             padding="max_length",
-            max_length=self.args.max_length + self.args.max_length,
+            max_length=self.args.max_seq_length + self.args.max_length,
         )
         trainer = FineTuneTrainer(
             model=self.model,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset if eval_data is not None else None,
-            tokenizer=self.tokenizer,
             args=trainer_args,
+            tokenizer=self.tokenizer,
             data_collator=data_collator,
         )
 
@@ -373,7 +374,7 @@ class LLamaModel:
 
         # eval step
         if eval_data is not None:
-            logger.info("*** Eval ***")
+            logger.info("*** Evaluate ***")
             if self.args.fp16:
                 self.model.half()
             metrics = trainer.evaluate(metric_key_prefix="eval")
@@ -507,33 +508,31 @@ class LLamaModel:
     def load_peft_model(self):
         if self.peft_name:
             if os.path.isdir(self.peft_name) and os.path.exists(
-                os.path.join(self.peft_name, "tokenizer_config.json")
-            ):
+                    os.path.join(self.peft_name, "tokenizer_config.json")):
                 update_tokenizer = True
             else:
                 update_tokenizer = False
-            # 如果lora修正了tokenizer部分，则需要在这里面重新加载以及resize embedding
-            if update_tokenizer:
+            if "ziqingyang/chinese" in self.peft_name or update_tokenizer:
                 self.tokenizer = LlamaTokenizer.from_pretrained(self.peft_name)
                 self.resize_model_embeddings(len(self.tokenizer))
             self.model = PeftModel.from_pretrained(
-                model=self.model,
-                model_id=self.peft_name,
+                self.model,
+                self.peft_name,
                 torch_dtype=torch.float16 if self.args.fp16 else torch.float32,
                 device_map=self.device_map,
             )
-            logger.info(f"loader peft model from {self.peft_name}")
+            logger.info(f"Loaded peft model from {self.peft_name}")
         else:
-            #
+            # Load peft model from output_dir
             peft_path = os.path.join(self.args.output_dir, self.args.peft_bin_name)
             if peft_path and os.path.exists(peft_path):
                 self.model = PeftModel.from_pretrained(
-                    model=self.model,
-                    model_id=self.args.output_dir,
+                    self.model,
+                    self.args.output_dir,
                     torch_dtype=torch.float16 if self.args.fp16 else torch.float32,
                     device_map=self.device_map,
                 )
-            logger.info(f"loader peft model from {peft_path}")
+                logger.info(f"Loaded peft model from {peft_path}")
 
     def load_and_cache_example(self, data, evaluate=False, no_cache: bool = None):
         """
@@ -582,17 +581,16 @@ class LLamaModel:
         Returns:
 
         """
-        if output_dir is None:
+        if not output_dir:
             output_dir = self.args.output_dir
-
         os.makedirs(output_dir, exist_ok=True)
 
         if model and not self.args.no_save:
+            # Take care of distributed/parallel training
             model_to_save = model.module if hasattr(model, "module") else model
-            # model save
             model_to_save.save_pretrained(output_dir)
             self.tokenizer.save_pretrained(output_dir)
-            torch.save(self.args, os.path.join(output_dir, "training_args.bins"))
+            torch.save(self.args, os.path.join(output_dir, "training_args.bin"))
             if optimizer and scheduler and self.args.save_optimizer_and_scheduler:
                 torch.save(
                     optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt")
@@ -600,7 +598,7 @@ class LLamaModel:
                 torch.save(
                     scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt")
                 )
-
+            # save model
             self.save_model_args(output_dir)
 
     def save_model_args(self, output_dir):
