@@ -145,58 +145,61 @@ class LLamaModel:
         **kwargs,
     ):
         """
-        训练代码
-        Args:
-            train_data: pands dataframe
-            output_dir: if not given will use self.args.output_dir
-            args: model config dict
-            eval_data:
-            verbose:
-            **kwargs:
+       Trains the model using 'train_data'
 
-        Returns:
-            global_step: Number of global steps trained
-            training_details: Average training loss if evaluate_during_training is False or full training progress
-            scores if evaluate_during_training is True
-        """
+       Args:
+           train_data: Pandas DataFrame containing the 3 columns - `instruction`, `input`, `output`.
+                       - `instruction`: The instruction text. (E.g. `"correct the following:"`)
+                       - `input`: The input text sequence. `instruction` is automatically prepended to form the full input. (<instruction> `\n` <input>)
+                       - `output`: The target sequence
+           output_dir: The directory where model files will be saved. If not given, self.args.output_dir will be used.
+           args (optional): Optional changes to the args dict of the model. Any changes made will persist for the model.
+           eval_data (optional): A DataFrame against which evaluation will be performed when evaluate_during_training is enabled. Is required if evaluate_during_training is enabled.
+           verbose (optional): If True, all of the warnings related to data processing will be printed. 
+           **kwargs: Additional metrics that should be used. Pass in the metrics as keyword arguments (name of metric: function to use).
+                       A metric function should take in two parameters. The first parameter will be the true labels, and the second parameter will be the predictions. Both inputs
+                       will be lists of strings. Note that this will slow down training significantly as the predicted sequences need to be generated.
+
+       Returns:
+           global_step: Number of global steps trained
+           training_details: Average training loss if evaluate_during_training is False or full training progress scores if evaluate_during_training is True
+       """  # noqa: ignore flake8"
+
         if args:
             self.args.update_from_dict(args)
-
         if self.args.evaluate_during_training and eval_data is None:
             raise ValueError(
                 "evaluate_during_training is enabled but eval_data is not specified."
                 " Pass eval_data to model.train_model() if using evaluate_during_training."
             )
+
         if not output_dir:
             output_dir = self.args.output_dir
-
         if (
-            os.path.exists(output_dir)
-            and os.listdir(output_dir)
-            and not self.args.overwrite_output_dir
+                os.path.exists(output_dir)
+                and os.listdir(output_dir)
+                and not self.args.overwrite_output_dir
         ):
             raise ValueError(
                 "Output directory ({}) already exists and is not empty."
                 " Set args.overwrite_output_dir = True to overcome.".format(output_dir)
             )
-
-        # 设置梯度检查点
+            # update model train config
         self.model.gradient_checkpointing_enable()
         self.model.enable_input_require_grads()
-
         if not self.ddp and torch.cuda.device_count() > 1:
+            # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
             self.model.is_parallelizable = True
             self.model.model_parallel = True
         self.model.config.use_cache = False
         resume_from_checkpoint = self.args.resume_from_checkpoint
 
-        # peft set
+        # setup peft
         if self.args.use_peft:
             peft_type = self.args.peft_type.upper()
-            logger.info(f"use peft type: {peft_type}")
-
+            logger.info(f"Using PEFT type: {peft_type}")
             # add peft config
-            if peft_type == "LORA":
+            if peft_type == 'LORA':
                 peft_config = LoraConfig(
                     task_type=TaskType.CAUSAL_LM,
                     inference_mode=False,
@@ -206,7 +209,7 @@ class LLamaModel:
                     target_modules=self.args.lora_target_modules,
                     bias=self.args.lora_bias,
                 )
-            elif peft_type == "ADALORA":
+            elif peft_type == 'ADALORA':
                 from peft import AdaLoraConfig
 
                 peft_config = AdaLoraConfig(
@@ -223,22 +226,22 @@ class LLamaModel:
                     task_type=TaskType.CAUSAL_LM,
                     inference_mode=False,
                 )
-            elif peft_type == "PROMPT_TUNING":
+            elif peft_type == 'PROMPT_TUNING':
                 from peft import PromptTuningConfig
 
                 peft_config = PromptTuningConfig(
                     task_type=TaskType.CAUSAL_LM,
                     num_virtual_tokens=self.args.num_virtual_tokens,
                 )
-            elif peft_type == "P_TUNING":
+            elif peft_type == 'P_TUNING':
                 from peft import PromptEncoderConfig
 
                 peft_config = PromptEncoderConfig(
                     task_type=TaskType.CAUSAL_LM,
                     num_virtual_tokens=self.args.num_virtual_tokens,
-                    encoder_hidden_size=self.args.prompt_encoder_hidden_size,
+                    encoder_hidden_size=self.args.prompt_encoder_hidden_size
                 )
-            elif peft_type == "PREFIX_TUNING":
+            elif peft_type == 'PREFIX_TUNING':
                 from peft import PrefixTuningConfig
 
                 peft_config = PrefixTuningConfig(
@@ -247,8 +250,9 @@ class LLamaModel:
                     encoder_hidden_size=self.args.prompt_encoder_hidden_size,
                     prefix_projection=True,
                 )
+                self.model.gradient_checkpointing_disable()
             else:
-                logger.warning(f"given wrong peft_type:{peft_type} set peft_type=lora")
+                logger.warning(f"Wrong type of peft. Set to default lora")
                 peft_config = LoraConfig(
                     task_type=TaskType.CAUSAL_LM,
                     inference_mode=False,
@@ -260,13 +264,11 @@ class LLamaModel:
                 )
 
             if self.args.int8:
-                self.model = prepare_model_for_int8_training(
-                    model=self.model,
-                )
+                self.model = prepare_model_for_int8_training(self.model)
             self.model = get_peft_model(self.model, peft_config)
 
-            # 加载resume
             if resume_from_checkpoint:
+                # Check the available weights and load them
                 checkpoint_name = os.path.join(resume_from_checkpoint, "pytorch_model.bin")  # Full checkpoint
                 if not os.path.exists(checkpoint_name):
                     checkpoint_name = os.path.join(
@@ -282,34 +284,23 @@ class LLamaModel:
                 else:
                     logger.warning(f"Checkpoint {checkpoint_name} not found")
 
-            self.model.print_trainable_parameters()
+            self.model.print_trainable_parameters()  # Be more transparent about the % of trainable params.
         else:
-            logger.warning(
-                "if you want fine-tuning this model please set args.use_peft=True and args.peft_type=lora"
-                "to start lora fine-tuning"
-            )
-
-        # 创建输出文件夹
+            logger.warning("Now full model params fine-tune, which is slow, set `use_lora=True` for lora fine-tune.")
         os.makedirs(output_dir, exist_ok=True)
 
         # load dataset
-        train_dataset = self.load_and_cache_example(train_data)
+        train_dataset = self.load_and_cache_examples(train_data)
         if verbose:
-            logger.debug(
-                f"train_dataset len: {len(train_dataset)}, train_dataset[0]: {train_dataset[0]}"
-            )
-
+            logger.debug(f"train_dataset len: {len(train_dataset)}, train_dataset[0]: {train_dataset[0]}")
         eval_dataset = None
         if eval_data is not None:
-            eval_dataset = self.load_and_cache_example(eval_data, evaluate=True)
+            eval_dataset = self.load_and_cache_examples(eval_data, evaluate=True)
             if verbose:
-                logger.debug(
-                    f"eval_dataset len: {len(eval_dataset)}, eval_dataset[0]: {eval_dataset[0]}"
-                )
+                logger.debug(f"eval_dataset len: {len(eval_dataset)}, eval_dataset[0]: {eval_dataset[0]}")
 
-        # build trainer if use lightning this step is not used
-
-        trainer_args = TrainingArguments(
+        # start train
+        training_args = TrainingArguments(
             output_dir=output_dir,
             learning_rate=self.args.learning_rate,
             num_train_epochs=self.args.num_train_epochs,
@@ -335,44 +326,38 @@ class LLamaModel:
             no_cuda=True if self.device == "cpu" else False,
             **kwargs
         )
-
+        # Log on each process the small summary:
         logger.warning(
-            f"process rank: {trainer_args.local_rank}, device: {trainer_args.device}, n_gpu: {trainer_args.n_gpu}"
-            f"distributed training: {bool(trainer_args.local_rank != -1)}"
-            f"16-bit training: {trainer_args.fp16}"
+            f"Process rank: {training_args.local_rank}, device: {training_args.device}, n_gpu: {training_args.n_gpu}, "
+            + f"distributed training: {bool(training_args.local_rank != -1)}, 16-bits training: {training_args.fp16}"
         )
-
-        logger.info(f"train/eval parameters {trainer_args}")
+        logger.info(f"Training/evaluation parameters {training_args}")
 
         data_collator = DataCollatorForSeq2Seq(
-            tokenizer=self.tokenizer,
+            self.tokenizer,
             return_tensors="pt",
             padding="max_length",
-            max_length=self.args.max_seq_length + self.args.max_length,
+            max_length=self.args.max_seq_length + self.args.max_length
         )
-        trainer = FineTuneTrainer(
+        trainer = FinetuneTrainer(
             model=self.model,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset if eval_data is not None else None,
-            args=trainer_args,
+            args=training_args,
             tokenizer=self.tokenizer,
             data_collator=data_collator,
         )
 
-        logger.info("compile model")
         if self.args.enable_torch_compile:
             if torch.__version__ >= "2" and sys.platform != "win32":
                 self.model = torch.compile(self.model)
 
         logger.info("*** Train ***")
-        (global_step, training_loss, metrics) = trainer.train(
-            resume_from_checkpoint=resume_from_checkpoint
-        )
+        (global_step, training_loss, metrics) = trainer.train(resume_from_checkpoint=resume_from_checkpoint)
         self.handle_metrics("train", metrics, output_dir)
         self.results.update(metrics)
         self.save_model(model=self.model)
 
-        # eval step
         if eval_data is not None:
             logger.info("*** Evaluate ***")
             if self.args.fp16:
@@ -382,12 +367,12 @@ class LLamaModel:
             self.handle_metrics("eval", metrics, output_dir)
             self.results.update(metrics)
 
-        # verbose
         if verbose:
             logger.debug(f"metrics: {self.results}")
             logger.info(
-                f"train of {self.args.model_name} model complete"
-                f"save to {output_dir}"
+                " Training of {} model complete. Saved to {}.".format(
+                    self.args.model_name, output_dir
+                )
             )
         return global_step, training_loss
 
@@ -534,7 +519,7 @@ class LLamaModel:
                 )
                 logger.info(f"Loaded peft model from {peft_path}")
 
-    def load_and_cache_example(self, data, evaluate=False, no_cache: bool = None):
+    def load_and_cache_examples(self, data, evaluate=False, no_cache: bool = None):
         """
         create a LlamaDataset
         Args:
@@ -632,7 +617,7 @@ class LLamaModel:
                 f.write(f"\n{key} = {metrics[key]}")
 
 
-class FineTuneTrainer(Trainer):
+class FinetuneTrainer(Trainer):
     def save_model(
         self, output_dir: Optional[str] = None, _internal_call: bool = False
     ):
