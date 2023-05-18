@@ -21,7 +21,7 @@ class LlamaArgs(ModelArgs):
 
     model_class: str = "LlamaArgs"
     dataset_class: Dataset = None
-    learning_rate: float = 3e-4
+    learning_rate: float = 5e-6
     fp16: bool = True
     int8: bool = False
     quantization_bit: int = None  # if use quantization bit, set 4, else None
@@ -31,7 +31,7 @@ class LlamaArgs(ModelArgs):
     do_sample: bool = True
     early_stopping: bool = True
     evaluate_generated_text: bool = True
-    is_chat_task: bool = True
+    is_train_on_prompt: bool = True
     warmup_steps: int = 50
     report_to = "tensorboard"
     optimizer: str = "adamw_torch"
@@ -74,3 +74,4 @@ class LlamaArgs(ModelArgs):
     logging_steps = 50
     resume_from_checkpoint: str = None
     enable_torch_compile: bool = False
+    # enable_torch_compile: bool = False

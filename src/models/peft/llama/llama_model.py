@@ -6,6 +6,7 @@
 """
 modified from https://github.com/tloen/alpaca-lora/blob/main/finetune.py
 """
+import math
 import os
 import sys
 from typing import Optional, List, Tuple
@@ -110,7 +111,7 @@ class LLamaModel:
             config=config,
             load_in_8bit=self.args.int8,
             torch_dtype=torch.float16 if self.args.fp16 else torch.float32,
-            device_map=self.device_map,
+            # device_map=self.device_map,
         )
 
         self.tokenizer_class = tokenizer_class
@@ -134,6 +135,7 @@ class LLamaModel:
 
         self.tokenizer.padding_side = "left"
         self.tokenizer.pad_token_id = 0  # unk token 我希望unk token 不同于 eos token
+        self.model = self.model.to(self.device)
 
     def train_model(
         self,
@@ -145,25 +147,25 @@ class LLamaModel:
         **kwargs,
     ):
         """
-       Trains the model using 'train_data'
+        Trains the model using 'train_data'
 
-       Args:
-           train_data: Pandas DataFrame containing the 3 columns - `instruction`, `input`, `output`.
-                       - `instruction`: The instruction text. (E.g. `"correct the following:"`)
-                       - `input`: The input text sequence. `instruction` is automatically prepended to form the full input. (<instruction> `\n` <input>)
-                       - `output`: The target sequence
-           output_dir: The directory where model files will be saved. If not given, self.args.output_dir will be used.
-           args (optional): Optional changes to the args dict of the model. Any changes made will persist for the model.
-           eval_data (optional): A DataFrame against which evaluation will be performed when evaluate_during_training is enabled. Is required if evaluate_during_training is enabled.
-           verbose (optional): If True, all of the warnings related to data processing will be printed. 
-           **kwargs: Additional metrics that should be used. Pass in the metrics as keyword arguments (name of metric: function to use).
-                       A metric function should take in two parameters. The first parameter will be the true labels, and the second parameter will be the predictions. Both inputs
-                       will be lists of strings. Note that this will slow down training significantly as the predicted sequences need to be generated.
+        Args:
+            train_data: Pandas DataFrame containing the 3 columns - `instruction`, `input`, `output`.
+                        - `instruction`: The instruction text. (E.g. `"correct the following:"`)
+                        - `input`: The input text sequence. `instruction` is automatically prepended to form the full input. (<instruction> `\n` <input>)
+                        - `output`: The target sequence
+            output_dir: The directory where model files will be saved. If not given, self.args.output_dir will be used.
+            args (optional): Optional changes to the args dict of the model. Any changes made will persist for the model.
+            eval_data (optional): A DataFrame against which evaluation will be performed when evaluate_during_training is enabled. Is required if evaluate_during_training is enabled.
+            verbose (optional): If True, all of the warnings related to data processing will be printed.
+            **kwargs: Additional metrics that should be used. Pass in the metrics as keyword arguments (name of metric: function to use).
+                        A metric function should take in two parameters. The first parameter will be the true labels, and the second parameter will be the predictions. Both inputs
+                        will be lists of strings. Note that this will slow down training significantly as the predicted sequences need to be generated.
 
-       Returns:
-           global_step: Number of global steps trained
-           training_details: Average training loss if evaluate_during_training is False or full training progress scores if evaluate_during_training is True
-       """  # noqa: ignore flake8"
+        Returns:
+            global_step: Number of global steps trained
+            training_details: Average training loss if evaluate_during_training is False or full training progress scores if evaluate_during_training is True
+        """  # noqa: ignore flake8"
 
         if args:
             self.args.update_from_dict(args)
@@ -176,9 +178,9 @@ class LLamaModel:
         if not output_dir:
             output_dir = self.args.output_dir
         if (
-                os.path.exists(output_dir)
-                and os.listdir(output_dir)
-                and not self.args.overwrite_output_dir
+            os.path.exists(output_dir)
+            and os.listdir(output_dir)
+            and not self.args.overwrite_output_dir
         ):
             raise ValueError(
                 "Output directory ({}) already exists and is not empty."
@@ -199,7 +201,7 @@ class LLamaModel:
             peft_type = self.args.peft_type.upper()
             logger.info(f"Using PEFT type: {peft_type}")
             # add peft config
-            if peft_type == 'LORA':
+            if peft_type == "LORA":
                 peft_config = LoraConfig(
                     task_type=TaskType.CAUSAL_LM,
                     inference_mode=False,
@@ -209,7 +211,7 @@ class LLamaModel:
                     target_modules=self.args.lora_target_modules,
                     bias=self.args.lora_bias,
                 )
-            elif peft_type == 'ADALORA':
+            elif peft_type == "ADALORA":
                 from peft import AdaLoraConfig
 
                 peft_config = AdaLoraConfig(
@@ -226,22 +228,22 @@ class LLamaModel:
                     task_type=TaskType.CAUSAL_LM,
                     inference_mode=False,
                 )
-            elif peft_type == 'PROMPT_TUNING':
+            elif peft_type == "PROMPT_TUNING":
                 from peft import PromptTuningConfig
 
                 peft_config = PromptTuningConfig(
                     task_type=TaskType.CAUSAL_LM,
                     num_virtual_tokens=self.args.num_virtual_tokens,
                 )
-            elif peft_type == 'P_TUNING':
+            elif peft_type == "P_TUNING":
                 from peft import PromptEncoderConfig
 
                 peft_config = PromptEncoderConfig(
                     task_type=TaskType.CAUSAL_LM,
                     num_virtual_tokens=self.args.num_virtual_tokens,
-                    encoder_hidden_size=self.args.prompt_encoder_hidden_size
+                    encoder_hidden_size=self.args.prompt_encoder_hidden_size,
                 )
-            elif peft_type == 'PREFIX_TUNING':
+            elif peft_type == "PREFIX_TUNING":
                 from peft import PrefixTuningConfig
 
                 peft_config = PrefixTuningConfig(
@@ -269,10 +271,13 @@ class LLamaModel:
 
             if resume_from_checkpoint:
                 # Check the available weights and load them
-                checkpoint_name = os.path.join(resume_from_checkpoint, "pytorch_model.bin")  # Full checkpoint
+                checkpoint_name = os.path.join(
+                    resume_from_checkpoint, "pytorch_model.bin"
+                )  # Full checkpoint
                 if not os.path.exists(checkpoint_name):
                     checkpoint_name = os.path.join(
-                        resume_from_checkpoint, "adapter_model.bin")  # only LoRA model - LoRA config above has to fit
+                        resume_from_checkpoint, "adapter_model.bin"
+                    )  # only LoRA model - LoRA config above has to fit
                     resume_from_checkpoint = (
                         False  # So the trainer won't try loading its state
                     )
@@ -286,18 +291,24 @@ class LLamaModel:
 
             self.model.print_trainable_parameters()  # Be more transparent about the % of trainable params.
         else:
-            logger.warning("Now full model params fine-tune, which is slow, set `use_lora=True` for lora fine-tune.")
+            logger.warning(
+                "Now full model params fine-tune, which is slow, set `use_lora=True` for lora fine-tune."
+            )
         os.makedirs(output_dir, exist_ok=True)
 
         # load dataset
         train_dataset = self.load_and_cache_examples(train_data)
         if verbose:
-            logger.debug(f"train_dataset len: {len(train_dataset)}, train_dataset[0]: {train_dataset[0]}")
+            logger.debug(
+                f"train_dataset len: {len(train_dataset)}, train_dataset[0]: {train_dataset[0]}"
+            )
         eval_dataset = None
         if eval_data is not None:
             eval_dataset = self.load_and_cache_examples(eval_data, evaluate=True)
             if verbose:
-                logger.debug(f"eval_dataset len: {len(eval_dataset)}, eval_dataset[0]: {eval_dataset[0]}")
+                logger.debug(
+                    f"eval_dataset len: {len(eval_dataset)}, eval_dataset[0]: {eval_dataset[0]}"
+                )
 
         # start train
         training_args = TrainingArguments(
@@ -314,7 +325,7 @@ class LLamaModel:
             save_steps=self.args.save_steps,
             optim=self.args.optimizer,
             save_strategy=self.args.save_strategy,
-            evaluation_strategy='steps' if eval_data is not None else 'no',
+            evaluation_strategy="steps" if eval_data is not None else "no",
             eval_steps=self.args.eval_steps if eval_data is not None else None,
             load_best_model_at_end=True if eval_data is not None else False,
             ddp_find_unused_parameters=False if self.ddp else None,
@@ -324,7 +335,7 @@ class LLamaModel:
             report_to=self.args.report_to,
             overwrite_output_dir=self.args.overwrite_output_dir,
             no_cuda=True if self.device == "cpu" else False,
-            **kwargs
+            **kwargs,
         )
         # Log on each process the small summary:
         logger.warning(
@@ -332,13 +343,14 @@ class LLamaModel:
             + f"distributed training: {bool(training_args.local_rank != -1)}, 16-bits training: {training_args.fp16}"
         )
         logger.info(f"Training/evaluation parameters {training_args}")
-
+        self.model = self.model.to(self.device)
         data_collator = DataCollatorForSeq2Seq(
             self.tokenizer,
             return_tensors="pt",
             padding="max_length",
-            max_length=self.args.max_seq_length + self.args.max_length
+            max_length=self.args.max_seq_length + self.args.max_length,
         )
+        # self.model = self.model.to(self.device)
         trainer = FinetuneTrainer(
             model=self.model,
             train_dataset=train_dataset,
@@ -353,7 +365,9 @@ class LLamaModel:
                 self.model = torch.compile(self.model)
 
         logger.info("*** Train ***")
-        (global_step, training_loss, metrics) = trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+        (global_step, training_loss, metrics) = trainer.train(
+            resume_from_checkpoint=resume_from_checkpoint
+        )
         self.handle_metrics("train", metrics, output_dir)
         self.results.update(metrics)
         self.save_model(model=self.model)
@@ -363,6 +377,8 @@ class LLamaModel:
             if self.args.fp16:
                 self.model.half()
             metrics = trainer.evaluate(metric_key_prefix="eval")
+            perplexity = math.exp(metrics["eval_loss"])
+            metrics["perplexity"] = perplexity
             logger.debug(f"eval metrics: {metrics}")
             self.handle_metrics("eval", metrics, output_dir)
             self.results.update(metrics)
@@ -487,13 +503,16 @@ class LLamaModel:
                 f"tokenizer vocab size {tokenizer_vocab_size}"
             )
             self.model.resize_token_embeddings(tokenizer_vocab_size)
-            assert self.model.get_input_embeddings().weight.size(0) == tokenizer_vocab_size
+            assert (
+                self.model.get_input_embeddings().weight.size(0) == tokenizer_vocab_size
+            )
             logger.debug(f" model token embedding updated {tokenizer_vocab_size}")
 
     def load_peft_model(self):
         if self.peft_name:
             if os.path.isdir(self.peft_name) and os.path.exists(
-                    os.path.join(self.peft_name, "tokenizer_config.json")):
+                os.path.join(self.peft_name, "tokenizer_config.json")
+            ):
                 update_tokenizer = True
             else:
                 update_tokenizer = False

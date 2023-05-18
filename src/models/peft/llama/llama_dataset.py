@@ -13,7 +13,6 @@ from src.models.peft.llama.llama_utils import preprocess_data
 import datasets as hf_dataset
 
 
-
 class LlamaDataset(Dataset):
     def __init__(self, tokenizer, args, data, mode):
         """
@@ -33,8 +32,8 @@ class LlamaDataset(Dataset):
         )
 
         if os.path.exists(cached_features_file) and (
-                (not args.reprocess_input_data and not args.no_cache)
-                or (mode == "dev" and args.use_cached_eval_features and not args.no_cache)
+            (not args.reprocess_input_data and not args.no_cache)
+            or (mode == "dev" and args.use_cached_eval_features and not args.no_cache)
         ):
             logger.info(" Loading features from cached file %s" % cached_features_file)
             with open(cached_features_file, "rb") as handle:
@@ -50,7 +49,7 @@ class LlamaDataset(Dataset):
             ]
 
             if (mode == "train" and args.use_multiprocessing) or (
-                    mode == "dev" and args.use_multiprocessing_for_evaluation
+                mode == "dev" and args.use_multiprocessing_for_evaluation
             ):
                 if args.multiprocessing_chunksize == -1:
                     chunksize = max(len(data) // (args.process_count * 2), 500)
@@ -66,9 +65,13 @@ class LlamaDataset(Dataset):
                         )
                     )
             else:
-                self.examples = [preprocess_data(d) for d in tqdm(data, disable=args.silent)]
+                self.examples = [
+                    preprocess_data(d) for d in tqdm(data, disable=args.silent)
+                ]
             if not args.no_cache:
-                logger.info(" Saving features into cached file %s" % cached_features_file)
+                logger.info(
+                    " Saving features into cached file %s" % cached_features_file
+                )
                 with open(cached_features_file, "wb") as handle:
                     pickle.dump(self.examples, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -81,10 +84,15 @@ class LlamaDataset(Dataset):
 
 def preprocess_batch_for_hf_dataset(example, tokenizer, args):
     data = (
-        example["instruction"], example["input_text"], example["output"], tokenizer, args
+        example["instruction"],
+        example["input_text"],
+        example["output"],
+        tokenizer,
+        args,
     )
     example = preprocess_data(data)
     return example
+
 
 def load_hf_dataset(data, tokenizer, args, mode):
     if isinstance(data, str):
@@ -94,7 +102,10 @@ def load_hf_dataset(data, tokenizer, args, mode):
             dataset = hf_dataset.load_from_disk(data)
         else:
             dataset = hf_dataset.load_dataset(
-                data, download_mode="force_redownload" if args.reprocess_input_data else "reuse_data_if_exists"
+                data,
+                download_mode="force_redownload"
+                if args.reprocess_input_data
+                else "reuse_data_if_exists",
             )
 
         dataset = dataset["train"]
@@ -104,11 +115,16 @@ def load_hf_dataset(data, tokenizer, args, mode):
     else:
         dataset = hf_dataset.Dataset.from_pandas(data)
 
-    dataset = dataset.shuffle().map(
-        lambda x: preprocess_batch_for_hf_dataset(x, tokenizer=tokenizer, args=args),
-        batched=False, remove_columns=dataset.column_names
-    ).filter(lambda x: len(x["input_ids"]) > 0)
+    dataset = (
+        dataset.shuffle()
+        .map(
+            lambda x: preprocess_batch_for_hf_dataset(
+                x, tokenizer=tokenizer, args=args
+            ),
+            batched=False,
+            remove_columns=dataset.column_names,
+        )
+        .filter(lambda x: len(x["input_ids"]) > 0)
+    )
 
     return dataset
-
-

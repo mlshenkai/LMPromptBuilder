@@ -4,5 +4,7 @@
 # @File: __init__.py
 # @Email: mlshenkai@163.com
 import pyrootutils
-pyrootutils.setup_root(__file__, project_root_env_var=True, dotenv=True, pythonpath=True, cwd=False)
 
+pyrootutils.setup_root(
+    __file__, project_root_env_var=True, dotenv=True, pythonpath=True, cwd=False
+)

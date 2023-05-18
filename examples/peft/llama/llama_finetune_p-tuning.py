@@ -3,11 +3,9 @@
 # @Created Time: 2023/5/16 8:05 PM
 # @File: llama_finetune_lora
 # @Email: mlshenkai@163.com
-import torch
+import os
 
-device_indices = [1, 2, 3, 4]
-for index in device_indices:
-    torch.cuda.set_device(index)
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
 import argparse
 from loguru import logger
 import pandas as pd
@@ -68,10 +66,13 @@ def main():
     parser.add_argument("--do_train", default=True, help="Whether to run training.")
     parser.add_argument("--do_predict", default=False, help="Whether to run predict.")
     parser.add_argument(
-        "--is_train_on_prompt", default=False, help="Whether to run language model task"
+        "--is_train_on_prompt", default=True, help="Whether to run language model task"
     )
     parser.add_argument(
-        "--output_dir", default="./outputs/", type=str, help="Model output directory"
+        "--output_dir",
+        default="./outputs_p_tuning/",
+        type=str,
+        help="Model output directory",
     )
     parser.add_argument(
         "--max_seq_length", default=128, type=int, help="Input max sequence length"
@@ -106,6 +107,7 @@ def main():
             "resume_from_checkpoint": args.output_dir,
             "eval_steps": args.eval_steps,
             "save_steps": args.save_steps,
+            "peft_type": "P_TUNING",
         }
         model = LlamaModelPeft(args.model_type, args.model_name, args=model_args)
         train_data = load_data(args.train_file)
