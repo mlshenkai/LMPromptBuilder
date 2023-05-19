@@ -62,12 +62,13 @@ test_df = pd.DataFrame(test_data, columns=["instruction", "input", "output"])
 logger.debug("test_df: {}".format(test_df))
 
 test_df["prompt"] = test_df.apply(get_prompt, axis=1)
-test_df["predict_after"] = model.predict(test_df["prompt"].tolist())
-logger.debug("test_df result: {}".format(test_df[["output", "predict_after"]]))
-out_df = test_df[["instruction", "input", "output", "predict_after"]]
-out_df.to_json(
-    f"{project_path}/resources/data/test_result.json",
-    force_ascii=False,
-    orient="records",
-    lines=True,
-)
+# model.model.stream_chat()
+# test_df["predict_after"] = model.predict(test_df["prompt"].tolist())
+# logger.debug("test_df result: {}".format(test_df[["output", "predict_after"]]))
+# out_df = test_df[["instruction", "input", "output", "predict_after"]]
+# out_df.to_json(
+#     f"{project_path}/resources/data/test_result.json",
+#     force_ascii=False,
+#     orient="records",
+#     lines=True,
+# )
