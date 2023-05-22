@@ -6,9 +6,6 @@
 """
 llama langchain
 """
-import os
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1,2,3"
 from typing import Optional, List, Any, Dict
 import torch
 from langchain.callbacks.manager import CallbackManagerForLLMRun
@@ -61,16 +58,10 @@ class Llama(LLM):
         stop: Optional[List[str]] = None,
         run_manager: Optional[CallbackManagerForLLMRun] = None,
     ) -> str:
-        response = self.client.predict([prompt], max_length=256)[0]
+        response = self.client.predict([prompt], max_length=self.args.max_seq_length)[0]
         return response
 
 
     @property
     def _llm_type(self) -> str:
         return "Llama"
-
-
-# if __name__ == "__main__":
-#     args = LlamaArgs()
-#     llm = Llama(args=args)
-#     print(llm._call("你好"))
