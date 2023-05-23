@@ -3,11 +3,8 @@
 # @Created Time: 2023/5/17 10:09 AM
 # @File: llama_predict_lora
 # @Email: mlshenkai@163.com
-import torch
-
-device_indices = [1, 2, 3, 4]
-for index in device_indices:
-    torch.cuda.set_device(index)
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 from loguru import logger
 import pyrootutils
 import pandas as pd
@@ -53,22 +50,47 @@ def get_prompt(arr):
 
 model = LlamaModelPeft(
     "llama",
-    "shibing624/chinese-alpaca-plus-7b-hf",
-    peft_name=f"{project_path}/examples/peft/llama/outputs_p_tuning",
+    "/code-online/resources/base_model_resources/chinese_llama/merge_chinese_alpaca_llama_lora_13b",
+    # peft_name=f"{project_path}/examples/peft/llama/outputs_p_tuning",
 )
-test_file = f"{project_path}/resources/data/中英品名0512.txt"
-test_data = load_data(test_file)[1:10]
-test_df = pd.DataFrame(test_data, columns=["instruction", "input", "output"])
-logger.debug("test_df: {}".format(test_df))
+# test_file = f"{project_path}/resources/data/中英品名0512.txt"
+# test_data = load_data(test_file)[1:10]
+# test_data = [["将一下文本中出现的数字均加一\n今年是2023年5月23日","今年是2023年5月23日", ""]]
+# test_df = pd.DataFrame(test_data, columns=["instruction", "input", "output"])
+# logger.debug("test_df: {}".format(test_df))
+#
+# test_df["prompt"] = test_df.apply(get_prompt, axis=1)
+# print(model.predict(test_df['prompt'].tolist()))
+prompt = """
+    Below is an instruction that describes a task. Write a response that appropriately 
+    completes the request.\n\n
+    ### Instruction:\n
+    将下面出现的数字均加一
+    \n
+    ### Input:\n
+    2023年5月23日
+    \n\n
+    ### Response:\n
+    2024年6月24日
+    \n
+    ### Input:\n
+    今年是2023年5月23日
+    \n\n
+    ### Response:\n
+"""
 
-test_df["prompt"] = test_df.apply(get_prompt, axis=1)
-# model.model.stream_chat()
-# test_df["predict_after"] = model.predict(test_df["prompt"].tolist())
-# logger.debug("test_df result: {}".format(test_df[["output", "predict_after"]]))
-# out_df = test_df[["instruction", "input", "output", "predict_after"]]
-# out_df.to_json(
-#     f"{project_path}/resources/data/test_result.json",
-#     force_ascii=False,
-#     orient="records",
-#     lines=True,
-# )
+refine_prompt_template = (
+    "Below is an instruction that describes a task. "
+    "Write a response that appropriately completes the request.\n\n"
+    "### Instruction:\n"
+    "这是原始问题: {question}\n"
+    "已有的回答: {existing_answer}\n"
+    "现在还有一些文字，（如果有需要）你可以根据它们完善现有的回答。"
+    "\n\n"
+    "{context_str}\n"
+    "\\nn"
+    "请根据新的文段，进一步完善你的回答。\n\n"
+    "### Response: "
+)
+
+print(model.predict([prompt]))

@@ -18,7 +18,7 @@ from src.models.peft.config.model_args import LlamaArgs
 class Llama(LLM):
     client: Any
     model_type: str = "llama"
-    model_name: str = "shibing624/chinese-alpaca-plus-7b-hf"
+    model_name: str = None
     peft_name: str = None
     args: Any
     use_cuda = torch.cuda.is_available()

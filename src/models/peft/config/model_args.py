@@ -48,8 +48,8 @@ class LlamaArgs(ModelArgs):
     special_tokens_list: list = field(default_factory=list)
     top_k: float = 40
     top_p: float = 0.9
-    model_name_or_path: Optional[str] = field(default="decapoda-research/llama-7b-hf")
-    use_peft: bool = True
+    model_name_or_path: Optional[str] = None
+    use_peft: bool = False
     peft_type: str = "LORA"
     peft_bin_name: str = "adapter_model.bin"
     lora_r: int = 8

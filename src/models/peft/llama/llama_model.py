@@ -39,7 +39,7 @@ class LLamaModel:
     def __init__(
         self,
         model_type: str = "llama",
-        model_name: str = "shibing624/chinese-alpaca-plus-7b-hf",
+        model_name: str = None,
         peft_name: str = None,
         args=None,
         use_cuda=torch.cuda.is_available(),
