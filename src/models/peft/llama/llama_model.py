@@ -116,9 +116,9 @@ class LLamaModel:
 
         self.tokenizer_class = tokenizer_class
         if self.args.tokenizer_name:
-            self.tokenizer = tokenizer_class.from_pretrained(self.args.tokenizer_name)
+            self.tokenizer = tokenizer_class.from_pretrained(self.args.tokenizer_name, use_fast=False)
         else:
-            self.tokenizer = tokenizer_class.from_pretrained(model_name)
+            self.tokenizer = tokenizer_class.from_pretrained(model_name, use_fast=False)
             self.args.tokenizer_name = self.args.model_name
 
         self.args.model_type = model_type
@@ -517,7 +517,7 @@ class LLamaModel:
             else:
                 update_tokenizer = False
             if "ziqingyang/chinese" in self.peft_name or update_tokenizer:
-                self.tokenizer = LlamaTokenizer.from_pretrained(self.peft_name)
+                self.tokenizer = LlamaTokenizer.from_pretrained(self.peft_name, use_fast=False)
                 self.resize_model_embeddings(len(self.tokenizer))
             self.model = PeftModel.from_pretrained(
                 self.model,
