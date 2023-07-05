@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=1,2,3,4,5 torchrun --nnodes 1 --nproc_per_node 5 llama_sft_tuning.py

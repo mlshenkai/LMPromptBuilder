@@ -9,7 +9,7 @@ os.environ[
     "SERPAPI_API_KEY"
 ] = "c81cb4bdce372462ef4ad8f9fa77e2192ac142fb0b27ca44a295b09ac63dd3d7"
 from examples.langchain_examples.llama.model.llama_model import Llama
-from src.models.peft.config.model_args import LlamaArgs
+from src.LMBuilder.LLM.models import LlamaArgs
 from langchain.agents import load_tools, initialize_agent, AgentType
 
 llm = Llama(

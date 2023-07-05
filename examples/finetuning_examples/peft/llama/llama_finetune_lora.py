@@ -16,7 +16,7 @@ import pyrootutils
 project_path = pyrootutils.setup_root(
     __file__, project_root_env_var=True, dotenv=True, pythonpath=True, cwd=False
 )
-from src.models import LlamaModelPeft
+from src.LMBuilder.LLM.models import LlamaModelPeft
 
 
 def load_data(file_path):

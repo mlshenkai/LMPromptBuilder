@@ -4,15 +4,24 @@
 # @File: llama_predict_lora
 # @Email: mlshenkai@163.com
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
-from loguru import logger
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,5"
+# os.environ["WORLD_SIZE"] = str(5)
+
+
 import pyrootutils
-import pandas as pd
 
 project_path = pyrootutils.setup_root(
     __file__, project_root_env_var=True, dotenv=True, pythonpath=True, cwd=False
 )
-from src.models import LlamaModelPeft
+from src.LMBuilder.LLM.models import LlamaModelPeft
+from src.LMBuilder.LLM.models import LlamaModelInfer
+import transformers
+transformers.logging.set_verbosity_error()
+local_rank = int(os.getenv("LOCAL_RANK", "0"))
+world_size = int(os.getenv("WORLD_SIZE", "1"))
+
+# deepspeed.init_distributed("nccl")
+# rank = dist.get_rank()
 
 
 def load_data(file_path):
@@ -48,21 +57,23 @@ def get_prompt(arr):
                 appropriately completes the request.\n\n### Instruction:\n{arr['instruction']}\n\n### Response:"""
 
 
-model = LlamaModelPeft(
-    "llama",
-    "/code-online/resources/base_model_resources/chinese_llama/merge_chinese_alpaca_llama_lora_13b",
-    # peft_name=f"{project_path}/examples/peft/llama/outputs_p_tuning",
-)
-# test_file = f"{project_path}/resources/data/中英品名0512.txt"
-# test_data = load_data(test_file)[1:10]
-# test_data = [["将一下文本中出现的数字均加一\n今年是2023年5月23日","今年是2023年5月23日", ""]]
-# test_df = pd.DataFrame(test_data, columns=["instruction", "input", "output"])
-# logger.debug("test_df: {}".format(test_df))
-#
-# test_df["prompt"] = test_df.apply(get_prompt, axis=1)
-# print(model.predict(test_df['prompt'].tolist()))
-prompt = """
-    Below is an instruction that describes a task. Write a response that appropriately 
+def main():
+    model_peft = LlamaModelPeft(
+        "llama",
+        "/code-online/resources/base_model_resources/chinese_llama/merge_chinese_alpaca_llama_lora_13b",
+        is_eval=True
+        # peft_name=f"{project_path}/examples/peft/llama/outputs_p_tuning",
+    )
+    # test_file = f"{project_path}/resources/data/中英品名0512.txt"
+    # test_data = load_data(test_file)[1:10]
+    # test_data = [["将一下文本中出现的数字均加一\n今年是2023年5月23日","今年是2023年5月23日", ""]]
+    # test_df = pd.DataFrame(test_data, columns=["instruction", "input", "output"])
+    # logger.debug("test_df: {}".format(test_df))
+    #
+    # test_df["prompt"] = test_df.apply(get_prompt, axis=1)
+    # print(model.predict(test_df['prompt'].tolist()))
+    prompt = """
+        Below is an instruction that describes a task. Write a response that appropriately 
     completes the request.\n\n
     ### Instruction:\n
     将下面出现的数字均加一
@@ -77,20 +88,36 @@ prompt = """
     今年是2023年5月23日
     \n\n
     ### Response:\n
-"""
+    """
 
-refine_prompt_template = (
-    "Below is an instruction that describes a task. "
-    "Write a response that appropriately completes the request.\n\n"
-    "### Instruction:\n"
-    "这是原始问题: {question}\n"
-    "已有的回答: {existing_answer}\n"
-    "现在还有一些文字，（如果有需要）你可以根据它们完善现有的回答。"
-    "\n\n"
-    "{context_str}\n"
-    "\\nn"
-    "请根据新的文段，进一步完善你的回答。\n\n"
-    "### Response: "
-)
+    refine_prompt_template = (
+        "Below is an instruction that describes a task. "
+        "Write a response that appropriately completes the request.\n\n"
+        "### Instruction:\n"
+        "这是原始问题: {question}\n"
+        "已有的回答: {existing_answer}\n"
+        "现在还有一些文字，（如果有需要）你可以根据它们完善现有的回答。"
+        "\n\n"
+        "{context_str}\n"
+        "\\nn"
+        "请根据新的文段，进一步完善你的回答。\n\n"
+        "### Response: "
+    )
 
-print(model.predict([prompt]))
+    model_infer = LlamaModelInfer(model_peft.args)
+    model = model_peft.model
+    tokenizer = model_peft.tokenizer
+    # model = deepspeed.init_inference(
+    #     model=model,
+    #     mp_size=world_size,
+    #     dtype=torch.float16,
+    #     replace_method="auto",
+    #     replace_with_kernel_inject=True,
+    # )
+
+    print(model_infer.infer(model, [prompt], tokenizer, device=model.device))
+
+
+if __name__ == "__main__":
+    # print(dist.get_world_size())
+    main()

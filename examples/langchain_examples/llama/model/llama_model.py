@@ -9,10 +9,9 @@ llama langchain
 from typing import Optional, List, Any, Dict
 import torch
 from langchain.callbacks.manager import CallbackManagerForLLMRun
-from pydantic import Field, root_validator
+from pydantic import root_validator
 from langchain.llms.base import LLM
-from src.models import LlamaModelPeft
-from src.models.peft.config.model_args import LlamaArgs
+from src.LMBuilder.LLM.models import LlamaModelPeft
 
 
 class Llama(LLM):

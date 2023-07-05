@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="easy_ai_14" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
+  <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
-      <paths name="easy_ai_14">
+      <paths name="dev_14">
         <serverdata>
           <mappings>
             <mapping deploy="/code-online/shenkai/LMPromptBuilder" local="$PROJECT_DIR$" web="/" />
