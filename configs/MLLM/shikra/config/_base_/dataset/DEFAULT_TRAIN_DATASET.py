@@ -1,0 +1,71 @@
+_base_ = [
+    'DEFAULT_TRAIN_GQA_VARIANT.py',
+    'DEFAULT_TRAIN_CLEVR_VARIANT.py',
+    'DEFAULT_TRAIN_POINT_VARIANT.py',
+    'DEFAULT_TRAIN_GPTGEN_VARIANT.py',
+    'DEFAULT_TRAIN_VCR_VARIANT.py',
+    'DEFAULT_TRAIN_VQAv2_VARIANT.py',
+    'DEFAULT_TRAIN_VQAEX_VARIANT.py',
+]
+
+DEFAULT_TRAIN_DATASET = dict(
+    flickr=dict(
+        type='FlickrDataset',
+        filename=r'{{fileDirname}}/../../../data/CWB_flickr30k_train.jsonl',
+        image_folder=r'/code-online/resources/data/flickr30k-images',
+        template_file=r'{{fileDirname}}/template/flickr30k.json',
+    ),
+    rec=dict(
+        type='RECDataset',
+        filename=r'{{fileDirname}}/../../../data/REC_ref3_train.jsonl',
+        image_folder=r'/code-online/resources/data/mscoco/data/train2014',
+        template_file=r'{{fileDirname}}/template/REC.json',
+    ),
+    recvg=dict(
+        type='RECDataset',
+        filename=r'{{fileDirname}}/../../../data/GC_genome196_train.jsonl',
+        image_folder=r'/code-online/resources/data/Visual_Genome_Dataset_V1.2',
+        template_file=r'{{fileDirname}}/template/REC.json',
+    ),
+    reg=dict(
+        type='REGDataset',
+        filename=r'{{fileDirname}}/../../../data/REC_ref3_train.jsonl',
+        image_folder=r'/code-online/resources/data/mscoco/data/train2014',
+        template_file=r'{{fileDirname}}/template/REG.json',
+    ),
+    gc=dict(
+        type='GCDataset',
+        filename=r'{{fileDirname}}/../../../data/GC_genome196_train.jsonl',
+        image_folder=r'/code-online/resources/data/Visual_Genome_Dataset_V1.2',
+        template_file=r'{{fileDirname}}/template/GC.json',
+    ),
+    caption=dict(
+        type='CaptionDataset',
+        filename=r'{{fileDirname}}/../../../data/CAP_coco2014_train.jsonl',
+        image_folder=r'/code-online/resources/data/mscoco/data/train2014',
+        template_file=r'{{fileDirname}}/template/image_cap.json',
+    ),
+    llavacc3m=dict(
+        type='InstructDataset',
+        filename=r"{{fileDirname}}/../../../data/llava_cc3m.jsonl",
+        image_folder=r'/code-online/resources/data/llava_cc3m/data',  # TODO: zz make folder name mistake
+    ),
+    llavalcs=dict(
+        type='InstructDataset',
+        filename=r"{{fileDirname}}/../../../data/blip_laion_cc_sbu_558k.jsonl",
+        image_folder=r'/code-online/resources/data/LLaVA-Pretrain/data',  # TODO: zz make folder name mistake
+    ),
+    instruct=dict(
+        type='InstructDataset',
+        filename=r'{{fileDirname}}/../../../data/llava_instruct_150k.jsonl',
+        image_folder=r'/code-online/resources/data/llava_instruct_150k/data',
+        add_coco_prefix=True,
+    ),
+    **_base_.DEFAULT_TRAIN_GQA_VARIANT,
+    **_base_.DEFAULT_TRAIN_CLEVR_VARIANT,
+    **_base_.DEFAULT_TRAIN_POINT_VARIANT,
+    **_base_.DEFAULT_TRAIN_GPTGEN_VARIANT,
+    **_base_.DEFAULT_TRAIN_VCR_VARIANT,
+    **_base_.DEFAULT_TRAIN_VQAv2_VARIANT,
+    **_base_.DEFAULT_TRAIN_VQAEX_VARIANT,
+)
