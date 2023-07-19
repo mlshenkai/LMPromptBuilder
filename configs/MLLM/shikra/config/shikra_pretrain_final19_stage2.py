@@ -2,7 +2,7 @@ _base_ = ['_base_/dataset/mix_pretrain_final19.py', '_base_/model/shikra.py', '_
 
 training_args = dict(
     num_train_epochs=3,
-    output_dir='./exp/{{fileBasenameNoExtension}}',
+    output_dir='/code-online/shenkai/LMPromptBuilder/exp/shikra_pretrain_final19_stage2',
 )
 
 model_args = dict(

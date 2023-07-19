@@ -45,6 +45,7 @@ class ShikraLlamaModel(LlamaModel):
             vision_model = self.vision_tower[0]
         # test_clip_version(image_processor, vision_model)
         vision_model.requires_grad_(False)
+        # vision_model.eval()
         vision_model = vision_model.to(torch.float16)
         self.vision_tower = [vision_model]
 

@@ -24,26 +24,27 @@ training_args = dict(
     warmup_ratio=0.03,
     evaluation_strategy='no',
 
+
     # train ddp
     # tf32=False,
     # bf16=True,
     # gradient_checkpointing=True,
     # fsdp="full_shard auto_wrap",
     # fsdp_transformer_layer_cls_to_wrap='LlamaDecoderLayer',
-    bf16=True,
-    # fp16=True,
+    # bf16=True,
+    fp16=True,
     deepspeed={
-        # "fp16": {
-        #     "enabled": "auto",
-        #     "loss_scale": 0,
-        #     "loss_scale_window": 1000,
-        #     "initial_scale_power": 16,
-        #     "hysteresis": 2,
-        #     "min_loss_scale": 1
-        # },
+        "fp16": {
+            "enabled": "auto",
+            "loss_scale": 0,
+            "loss_scale_window": 1000,
+            "initial_scale_power": 16,
+            "hysteresis": 2,
+            "min_loss_scale": 1
+        },
 
         "bf16": {
-            "enabled": "auto"
+            "enabled": False
         },
 
         "optimizer": {
@@ -72,10 +73,10 @@ training_args = dict(
                 "pin_memory": True
             },
             "allgather_partitions": True,
-            "allgather_bucket_size": 2e8,
+            "allgather_bucket_size": 1e9,
             "overlap_comm": True,
             "reduce_scatter": True,
-            "reduce_bucket_size": 2e8,
+            "reduce_bucket_size": 1e9,
             "contiguous_gradients": True
         },
 
@@ -84,14 +85,15 @@ training_args = dict(
         "steps_per_print": 2000,
         "train_batch_size": "auto",
         "train_micro_batch_size_per_gpu": "auto",
-        "wall_clock_breakdown": False
+        "wall_clock_breakdown": False,
+        "master_port": 29501
     },
 
     # train logging
     logging_steps=10,
     save_strategy='steps',
-    save_steps=2000,
-    save_total_limit=1,
+    save_steps=1000,
+    save_total_limit=3,
     # report_to="wandb",
 
     # eval and predict

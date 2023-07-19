@@ -13,6 +13,7 @@ import torch
 import pathlib
 # from loguru import logger
 import typing
+import deepspeed
 
 from src.LMBuilder.MLLM.shikra.utils.check_dataset import check_data
 from src.test.clip_model_test import test_clip_version
@@ -26,11 +27,12 @@ from src.LMBuilder.MLLM.shikra.builder import load_pretrained
 from src.LMBuilder.MLLM.shikra.utils import print_trainable_params
 from src.LMBuilder.MLLM.shikra.data_build import prepare_data, prepare_target_processor
 from src.LMBuilder.MLLM.shikra.engine import prepare_trainer_collator
-
+from transformers.deepspeed import HfDeepSpeedConfig
 
 def main(arg=None):
     cfg, training_args = prepare_args()
-    training_args.overwrite_output_dir = True
+    # dschf = HfDeepSpeedConfig(training_args.deepspeed)
+    # training_args.overwrite_output_dir = True
     model, preprocessor = load_pretrained(cfg.model_args, training_args)
     # Some ugly codes to inject target_processor into preprocessor.
     # maybe effect model. (e.g. add special token; resize embedding)
@@ -144,7 +146,7 @@ def _mp_fn(index):
 if __name__ == "__main__":
     wandb.init(project="llava", group="llava")
     # import torch.multiprocessing as mp
-    # os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     # mp.spawn(main, args=(), nprocs=3)
     main()
     wandb.finish()

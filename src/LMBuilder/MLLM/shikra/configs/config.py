@@ -92,7 +92,7 @@ def prepare_args(args=None):
 
     # Set seed before initializing model.
     set_seed(training_args.seed)
-    training_args.overwrite_output_dir = True
+    # training_args.overwrite_output_dir = True
     # training_args.per_device_train_batch_size
     return cfg, training_args
 

@@ -15,6 +15,8 @@ from transformers.deepspeed import is_deepspeed_zero3_enabled
 from transformers.trainer import TRAINER_STATE_NAME
 from loguru import logger
 
+from src.LMBuilder.LLM.data_build.build_dataset import IGNORE_INDEX
+
 
 class TrainerDifferentCollatorMixin:
     def __init__(
@@ -377,6 +379,21 @@ class Seq2Seq2DataCollatorWithImage(Seq2SeqDataCollator):
         ret = dict(images=images)
         return ret
 
+    def empty_feature(self, feature: dict):
+        input_ids = feature["input_ids"]
+        input_ids[: self.max_length] = self.tokenizer.pad_token_id
+        input_ids = input_ids[: self.max_length]
+        attention_mask = input_ids.ne(self.tokenizer.pad_token_id)
+        labels = input_ids.clone()
+        labels[:] = IGNORE_INDEX
+        image = feature["image"]
+        return dict(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            labels=labels,
+            image=image,
+        )
+
     def truncate_features(self, features):
         truncated_features = []
         if self.max_length is not None:
@@ -391,7 +408,7 @@ class Seq2Seq2DataCollatorWithImage(Seq2SeqDataCollator):
                             for k in self.text_keys
                         }
                     else:
-                        feature = {k: feature[k][:max_length] for k in self.text_keys}
+                        feature = self.empty_feature(feature)
                 truncated_features.append(feature)
             return truncated_features
         else:
